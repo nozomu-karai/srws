@@ -16,16 +16,33 @@ from pathlib import Path
 
 
 def main():
-    set_seed(0)
-    device = set_device("0,1,2")
+    parser = ArgumentParser()
+    parser.add_argument('--save-path', help='path to save models', required=True)
+    parser.add_argument('--load-path', help='path to load models', required=True)
+    parser.add_argument('--seed', type=int, default=0, help='random seed')
+    parser.add_argument('--gpuid', help='GPU id (supposed to be using only 1 GPU)')
+    parser.add_argument('--pretrained-model', default="allenai/scibert_scivocab_uncased", help='pretrained BERT model path')
+    #parser.add_argument('--dataset-path', default="data", help='dataset path')
+    parser.add_argument('--max-seq-len', default=512, help='max sequence length for BERT input')
+    parser.add_argument('--batch-size', type=int, default=8, help='batch size')
+    parser.add_argument('--lr', default=1e-5, help='learning rate')
+    parser.add_argument('--num-epochs', default=3, help="number of epochs")
+    args = parser.parse_args()
+
+    save_path = Path(args.save_path)
+    save_path.mkdir(exist_ok=True)
+    load_path = Path(args.load_path)
+
+    set_seed(args.seed)
+    device = set_device(args.gpuid)
     n_gpu = torch.cuda.device_count()
 
-    tokenizer = BertTokenizer.from_pretrained("allenai/scibert_scivocab_uncased")
+    tokenizer = BertTokenizer.from_pretrained(args.pretrained_model)
 
-    dataset = SRWS_test(path="data/test.csv", tokenizer=tokenizer, max_seq_len=512)
-    batch_size = 32
+    dataset = SRWS_test(path="data/test.csv", tokenizer=tokenizer, max_seq_len=args.max_seq_len)
+    batch_size = args.batch_size
     test_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
-    dataset = SRWS(path="data/train.csv", tokenizer=tokenizer, max_seq_len=512)
+    dataset = SRWS(path="data/train.csv", tokenizer=tokenizer, max_seq_len=args.max_seq_len)
     n_samples = len(dataset)
     train_size = int(n_samples * 0.8)
     val_size = n_samples - train_size
@@ -35,8 +52,8 @@ def main():
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
 
-    model = BertForSequenceRegression().to(device)
-    state_dict = torch.load("scibert/model.pth", map_location=device)
+    model = BertForSequenceRegression(args.pretrained_model).to(device)
+    state_dict = torch.load(load_path / "model.pth", map_location=device)
     model.load_state_dict(state_dict)
     prediction, labels, outputs = [], [], []
 
@@ -87,7 +104,7 @@ def main():
     num = []
     for idx, low in enumerate(f):
         num.append(low[0])
-    with open("scibert/output_best.csv", "wt") as f:
+    with open(save_path / "output_best.csv", "wt") as f:
         for n, pre in zip(num, prediction):
             f.write(f"{n},{pre}\n")
     

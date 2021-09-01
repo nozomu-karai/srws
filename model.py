@@ -5,11 +5,12 @@ from transformers import BertModel
 
 class BertForSequenceRegression(nn.Module):
     def __init__(self,
+            pretrained_model,
             output_attentions: bool = False) -> None:
 
         super().__init__()
 
-        self.bert = BertModel.from_pretrained("allenai/scibert_scivocab_uncased", output_attentions=output_attentions)
+        self.bert = BertModel.from_pretrained(pretrained_model, output_attentions=output_attentions)
         self.dropout = nn.Dropout(self.bert.config.hidden_dropout_prob)
         self.linear = nn.Linear(self.bert.config.hidden_size, 1) 
         self.sigmoid = nn.Sigmoid()
